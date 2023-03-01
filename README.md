@@ -1,4 +1,4 @@
-# \[Group name\]
+# Python4Lyfe
 
 **Group members:**
 - Frederik
