@@ -59,7 +59,7 @@ class HouseholdSpecializationModelClass:
         # a. consumption of market goods
         C = par.wM*LM + par.wF*LF
 
-        # b. home production, adjusted for sigma
+        # b. home production, adjusted for different values of sigma
         if np.isclose(sigma,1):
             H = HM**(1-alpha)*HF**alpha
         elif np.isclose(sigma,0.0):
@@ -71,7 +71,7 @@ class HouseholdSpecializationModelClass:
         Q = C**par.omega*H**(1-par.omega)
         utility = np.fmax(Q,1e-8)**(1-par.rho)/(1-par.rho)
 
-        # d. disutlity of work
+        # d. disutlity of work (with addition of dummy (Question 5))
         epsilon_ = 1+1/par.epsilon
         TM = LM+HM
         TF = LF+HF
@@ -83,14 +83,16 @@ class HouseholdSpecializationModelClass:
        
         """ solve model discretely """
         
+        #Setting up initial parameters
         par = self.par
         sol = self.sol
         opt = SimpleNamespace()
         
+        #Accounting for None values of Sigma and Alpha
         sigma = par.sigma if sigma is None else sigma
         alpha = par.alpha if alpha is None else alpha
         
-        # a. all possible choices
+        # all possible choices
         x = np.linspace(0,24,49)
         LM,HM,LF,HF = np.meshgrid(x,x,x,x) # all combinations
     
@@ -99,14 +101,14 @@ class HouseholdSpecializationModelClass:
         LF = LF.ravel()
         HF = HF.ravel()
 
-        # b. calculate utility
+        # calculate utility
         u = self.calc_utility(LM,HM,LF,HF,sigma,alpha)
     
-        # c. set to minus infinity if constraint is broken
+        # set to minus infinity if constraint is broken
         I = (LM+HM > 24) | (LF+HF > 24) # | is "or"
         u[I] = -np.inf
     
-        # d. find maximizing argument
+        # find maximizing argument
         j = np.argmax(u)
         
         opt.LM = LM[j]
@@ -114,7 +116,7 @@ class HouseholdSpecializationModelClass:
         opt.LF = LF[j]
         opt.HF = HF[j]
 
-        # e. print
+        # print
         if do_print:
             for k,v in opt.__dict__.items():
                 print(f'{k} = {v:6.4f}')
@@ -123,20 +125,27 @@ class HouseholdSpecializationModelClass:
 
     def solve_continuous(self,do_print=False):
         """ solve model continuously """
-
+        
+        #Setting up initial parameters
         par = self.par
         sol = self.par
         opt = SimpleNamespace()
-
+        
+        #Setting bounds, 24 hours for each 
         bnds = ((0,24),(0,24),(0,24),(0,24))
+        
+        #Setting up constraints, 24 hour max for H and L
         cnst = {'type': 'ineq', 'fun': lambda x: 24 - x[0] - x[1],
                 'type': 'ineq', 'fun': lambda x: 24 - x[2] - x[3]}
 
+        #Creating objective function for optimize
         def obj(x):
             return -self.calc_utility(x[0],x[1],x[2],x[3])
 
+        #Optimizing
         res = optimize.minimize(obj,x0 = (4.5,4.5,4.5,4.5),method='SLSQP',bounds = bnds, constraints = cnst)
-
+        
+        #Saving results
         opt.LM = res.x[0]
         opt.HM = res.x[1]
         opt.LF = res.x[2]
@@ -154,28 +163,35 @@ class HouseholdSpecializationModelClass:
 
     def solve_wF_vec(self,discrete=False):
         """ solve model for vector of female wages """
-
+        
+        #Setting up parameters
         par = self.par
         sol = self.sol
-
+    
+        #Creating vectors for results
         par.lw_vec = np.zeros(len(par.wF_vec))
         par.lH_vec = np.zeros(len(par.wF_vec))
 
         sol.HM_vec = np.zeros(len(par.wF_vec))
         sol.HF_vec = np.zeros(len(par.wF_vec))
-
+        
+        #Loop through different values of wF
         for i_w, wF in enumerate(par.wF_vec):
-
+            
+            #Changing wF
             par.wF = wF
 
             if discrete:
-
+            
+                #Solve for discrete choice set
                 opt = self.solve_discrete()
 
             else:
-
+                
+                #Solve for continuous choice set
                 opt = self.solve_continuous()
-
+            
+            #Saving results
             par.lw_vec[i_w] = np.log(par.wF/par.wM)
             par.lH_vec[i_w] = np.log(opt.HF/opt.HM)
 
@@ -185,10 +201,12 @@ class HouseholdSpecializationModelClass:
 
     def run_regression(self):
         """ run regression """
-
+        
+        #Setting up parameters
         par = self.par
         sol = self.sol
-
+        
+        #Running regression
         x = np.log(par.wF_vec)
         y = np.log(sol.HF_vec/sol.HM_vec)
         A = np.vstack([np.ones(x.size),x]).T
@@ -196,27 +214,35 @@ class HouseholdSpecializationModelClass:
     
     def estimate(self,alpha=None,sigma=None,do_print=False):
         """ estimate alpha and sigma """
-
+        
+        #Setting up parameters
         par = self.par
         sol = self.sol
 
-
+        #Setting up objective function
         def obj(x):
-
+            
+            #Initial parameters
             b0 = 0.4
             b1 = -0.1
             par.alpha = x[0]
             par.sigma = x[1]
-
+            
+            #Solve optimal choice set, account for different wF
             self.solve_wF_vec(discrete=False)
-
+            
+            #Run regression for beta_0 and beta_1
             self.run_regression()
 
             return (b0-sol.beta0)**2 + (b1-sol.beta1)**2
-
+        
+        #Setting bounds for alpha and sigma
         bnds = ((0,1),(0,5))
+        
+        #Minimize objective function for alpha and sigma
         res = optimize.minimize(obj,x0=(0.5,0.5),method='Nelder-Mead',bounds = bnds)
-
+        
+        #Saving results of alpha and sigma
         sol.alpha_hat = res.x[0]
         sol.sigma_hat = res.x[1]
 
@@ -231,11 +257,12 @@ class HouseholdSpecializationModelClass:
 
     def estimate_(self,sigma=None,mu=None,do_print=False):
         """ estimate mu and sigma """
-
+        
+        #Setting up parameters
         par = self.par
         sol = self.sol
 
-
+        #Create objective function
         def obj(x):
 
             b0 = 0.4
@@ -248,10 +275,14 @@ class HouseholdSpecializationModelClass:
             self.run_regression()
 
             return (b0-sol.beta0)**2 + (b1-sol.beta1)**2
-
+        
+        #Bounds for sigma and mu
         bnds = ((0,5),(-24,24))
+        
+        #Optimize fit with mu and sigma
         res = optimize.minimize(obj,x0=(1,6),method='Nelder-Mead',bounds = bnds)
-
+        
+        #Saving results
         sol.mu_hat = res.x[0]
         sol.sigma_hat = res.x[1]
 
