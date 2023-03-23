@@ -25,6 +25,8 @@ class HouseholdSpecializationModelClass:
         # c. household production
         par.alpha = 0.5
         par.sigma = 1.0
+        par.dummy = 0.0
+        par.mu = 0.0
 
         # d. wages
         par.wM = 1.0
@@ -73,7 +75,7 @@ class HouseholdSpecializationModelClass:
         epsilon_ = 1+1/par.epsilon
         TM = LM+HM
         TF = LF+HF
-        disutility = par.nu*(TM**epsilon_/epsilon_+TF**epsilon_/epsilon_)
+        disutility = par.nu*(TM**epsilon_/epsilon_+TF**epsilon_/epsilon_ + par.dummy*(LF-par.mu)**2)
         
         return utility - disutility
 
@@ -222,6 +224,41 @@ class HouseholdSpecializationModelClass:
             print(res.message)
             print(f'alpha_hat: {res.x[0]:.4f}')
             print(f'sigma_hat: {res.x[1]:.4f}')
+
+            print(f'beta0_hat: {sol.beta0:.4f}')
+            print(f'beta1_hat: {sol.beta1:.4f}')
+            print(f'Termination value: {obj(res.x):.4f}')
+
+    def estimate_(self,sigma=None,mu=None,do_print=False):
+        """ estimate mu and sigma """
+
+        par = self.par
+        sol = self.sol
+
+
+        def obj(x):
+
+            b0 = 0.4
+            b1 = -0.1
+            par.sigma = x[0]
+            par.mu = x[1]
+
+            self.solve_wF_vec(discrete=False)
+
+            self.run_regression()
+
+            return (b0-sol.beta0)**2 + (b1-sol.beta1)**2
+
+        bnds = ((0,5),(-24,24))
+        res = optimize.minimize(obj,x0=(1,6),method='Nelder-Mead',bounds = bnds)
+
+        sol.mu_hat = res.x[0]
+        sol.sigma_hat = res.x[1]
+
+        if do_print:
+            print(res.message)
+            print(f'sigma_hat: {res.x[0]:.4f}')
+            print(f'mu_hat: {res.x[1]:.4f}')
 
             print(f'beta0_hat: {sol.beta0:.4f}')
             print(f'beta1_hat: {sol.beta1:.4f}')
