@@ -58,9 +58,9 @@ class HouseholdSpecializationModelClass:
         C = par.wM*LM + par.wF*LF
 
         # b. home production, adjusted for sigma
-        if sigma == 1:
+        if np.isclose(sigma,1):
             H = HM**(1-alpha)*HF**alpha
-        elif sigma == 0:
+        elif np.isclose(sigma,0.0):
             H = min(HM,HF)
         else:
             H = ((1-alpha)*HM**((sigma-1)/sigma)+alpha*HF**((sigma-1)/sigma))**(sigma/(sigma-1))
@@ -119,15 +119,67 @@ class HouseholdSpecializationModelClass:
 
         return opt
 
-    def solve(self,do_print=False):
-        """ solve model continously """
+    def solve_continuous(self,do_print=False):
+        """ solve model continuously """
 
-        pass    
+        par = self.par
+        sol = self.par
+        opt = SimpleNamespace()
+
+        bnds = ((0,24),(0,24),(0,24),(0,24))
+        cnst = {'type': 'ineq', 'fun': lambda x: 24 - x[0] - x[1],
+                'type': 'ineq', 'fun': lambda x: 24 - x[2] - x[3]}
+
+        def obj(x):
+            return -self.calc_utility(x[0],x[1],x[2],x[3])
+
+        res = optimize.minimize(obj,x0 = (4.5,4.5,4.5,4.5),method='SLSQP',bounds = bnds, constraints = cnst)
+
+        opt.LM = res.x[0]
+        opt.HM = res.x[1]
+        opt.LF = res.x[2]
+        opt.HF = res.x[3]
+
+        if do_print:
+            print(res.message)
+
+            print(f'LM: {opt.LM:.4f}')
+            print(f'HM: {opt.HM:.4f}')
+            print(f'LF: {opt.LF:.4f}')
+            print(f'HF: {opt.HF:.4f}')
+
+        return opt
 
     def solve_wF_vec(self,discrete=False):
         """ solve model for vector of female wages """
 
-        pass
+        par = self.par
+        sol = self.sol
+
+        par.lw_vec = np.zeros(len(par.wF_vec))
+        par.lH_vec = np.zeros(len(par.wF_vec))
+
+        sol.HM_vec = np.zeros(len(par.wF_vec))
+        sol.HF_vec = np.zeros(len(par.wF_vec))
+
+        for i_w, wF in enumerate(par.wF_vec):
+
+            par.wF = wF
+
+            if discrete:
+
+                opt = self.solve_discrete()
+
+            else:
+
+                opt = self.solve_continuous()
+
+            par.lw_vec[i_w] = np.log(par.wF/par.wM)
+            par.lH_vec[i_w] = np.log(opt.HF/opt.HM)
+
+            sol.HM_vec[i_w] = opt.HM
+            sol.HF_vec[i_w] = opt.HF
+
 
     def run_regression(self):
         """ run regression """
@@ -140,7 +192,37 @@ class HouseholdSpecializationModelClass:
         A = np.vstack([np.ones(x.size),x]).T
         sol.beta0,sol.beta1 = np.linalg.lstsq(A,y,rcond=None)[0]
     
-    def estimate(self,alpha=None,sigma=None):
+    def estimate(self,alpha=None,sigma=None,do_print=False):
         """ estimate alpha and sigma """
 
-        pass
+        par = self.par
+        sol = self.sol
+
+
+        def obj(x):
+
+            b0 = 0.4
+            b1 = -0.1
+            par.alpha = x[0]
+            par.sigma = x[1]
+
+            self.solve_wF_vec(discrete=False)
+
+            self.run_regression()
+
+            return (b0-sol.beta0)**2 + (b1-sol.beta1)**2
+
+        bnds = ((0,1),(0,5))
+        res = optimize.minimize(obj,x0=(0.5,0.5),method='Nelder-Mead',bounds = bnds)
+
+        sol.alpha_hat = res.x[0]
+        sol.sigma_hat = res.x[1]
+
+        if do_print:
+            print(res.message)
+            print(f'alpha_hat: {res.x[0]:.4f}')
+            print(f'sigma_hat: {res.x[1]:.4f}')
+
+            print(f'beta0_hat: {sol.beta0:.4f}')
+            print(f'beta1_hat: {sol.beta1:.4f}')
+            print(f'Termination value: {obj(res.x):.4f}')
