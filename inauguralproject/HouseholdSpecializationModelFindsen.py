@@ -6,6 +6,7 @@ from scipy import optimize
 
 import pandas as pd 
 import matplotlib.pyplot as plt
+from tqdm.notebook import tqdm
 
 class HouseholdSpecializationModelClass:
 
@@ -75,7 +76,7 @@ class HouseholdSpecializationModelClass:
         epsilon_ = 1+1/par.epsilon
         TM = LM+HM
         TF = LF+HF
-        disutility = par.nu*(TM**epsilon_/epsilon_+TF**epsilon_/epsilon_ + par.dummy*(LF-par.mu)**2)
+        disutility = par.nu*(TM**epsilon_/epsilon_+TF**epsilon_/epsilon_+ par.dummy*(LF)**par.mu) 
         
         return utility - disutility
 
@@ -197,6 +198,10 @@ class HouseholdSpecializationModelClass:
 
             sol.HM_vec[i_w] = opt.HM
             sol.HF_vec[i_w] = opt.HF
+            sol.LF_vec[i_w] = opt.LF
+            sol.LM_vec[i_w] = opt.LM
+            
+        
 
 
     def run_regression(self):
@@ -277,11 +282,24 @@ class HouseholdSpecializationModelClass:
             return (b0-sol.beta0)**2 + (b1-sol.beta1)**2
         
         #Bounds for sigma and mu
-        bnds = ((0,5),(-24,24))
+        bnds = ((0,5),(0,24))
         
         #Optimize fit with mu and sigma
-        res = optimize.minimize(obj,x0=(1,6),method='Nelder-Mead',bounds = bnds)
         
+        #Try different initial values, to check for changes:
+        sigma_grid = np.linspace(0,5,5)
+        mu_grid = np.linspace(0,24,5)
+        res_grid = np.zeros((len(sigma_grid),len(mu_grid)))
+        
+        
+        #for s_i, s in tqdm(enumerate(sigma_grid)):
+        #    for m_i, m in enumerate(mu_grid):
+                
+        #        res = optimize.minimize(obj,x0=(s,m),method='Nelder-Mead',bounds = bnds)
+        #        res_grid[s_i,m_i] = obj(res.x)
+                
+        res = optimize.minimize(obj,x0=(1.25,12),method='Nelder-Mead',bounds = bnds)
+                
         #Saving results
         sol.mu_hat = res.x[0]
         sol.sigma_hat = res.x[1]
@@ -294,3 +312,4 @@ class HouseholdSpecializationModelClass:
             print(f'beta0_hat: {sol.beta0:.4f}')
             print(f'beta1_hat: {sol.beta1:.4f}')
             print(f'Termination value: {obj(res.x):.4f}')
+            
