@@ -182,12 +182,12 @@ class HouseholdSpecializationModelClass:
             #Changing wF
             par.wF = wF
 
-            if discrete:
+            if discrete: # solving with discrete method
             
                 #Solve for discrete choice set
                 opt = self.solve_discrete()
 
-            else:
+            else: # solving with continuous method
                 
                 #Solve for continuous choice set
                 opt = self.solve_continuous()
@@ -284,20 +284,12 @@ class HouseholdSpecializationModelClass:
         #Bounds for sigma and mu
         bnds = ((0,5),(0,24))
         
-        #Optimize fit with mu and sigma
-        
         #Try different initial values, to check for changes:
         sigma_grid = np.linspace(0,5,5)
         mu_grid = np.linspace(0,24,5)
         res_grid = np.zeros((len(sigma_grid),len(mu_grid)))
         
-        
-        #for s_i, s in tqdm(enumerate(sigma_grid)):
-        #    for m_i, m in enumerate(mu_grid):
-                
-        #        res = optimize.minimize(obj,x0=(s,m),method='Nelder-Mead',bounds = bnds)
-        #        res_grid[s_i,m_i] = obj(res.x)
-                
+        #Optimize fit with mu and sigma
         res = optimize.minimize(obj,x0=(1.25,12),method='Nelder-Mead',bounds = bnds)
                 
         #Saving results
