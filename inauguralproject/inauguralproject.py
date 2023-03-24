@@ -144,7 +144,7 @@ class HouseholdSpecializationModelClass:
             return -self.calc_utility(x[0],x[1],x[2],x[3])
 
         #Optimizing
-        res = optimize.minimize(obj,x0 = (4.5,4.5,4.5,4.5),method='SLSQP',bounds = bnds, constraints = cnst)
+        res = optimize.minimize(obj,x0 = (4.5,4.5,4.5,4.5),method='SLSQP',bounds = bnds, constraints = cnst,tol=1e-10)
         
         #Saving results
         opt.LM = res.x[0]
