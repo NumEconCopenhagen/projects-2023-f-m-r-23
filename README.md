@@ -1,9 +1,9 @@
 # Python4Lyfe
 
 **Group members:**
-- Frederik
-- Mads 
-- Rasmus
+- Frederik Findsen
+- Mads Thorndahl
+- Rasmus Hamann Jensen
 
 This repository contains  
 1. Inaugural project. 

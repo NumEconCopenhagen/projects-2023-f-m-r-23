@@ -26,7 +26,7 @@ class HouseholdSpecializationModelClass:
         # c. household production
         par.alpha = 0.5
         par.sigma = 1.0
-        par.dummy = 0.0
+        # par.dummy = 0.0
         par.mu = 0.0
 
         # d. wages
@@ -61,10 +61,10 @@ class HouseholdSpecializationModelClass:
         C = par.wM*LM + par.wF*LF
 
         # b. home production, adjusted for different values of sigma
-        if np.isclose(sigma,1):
+        if sigma==1:
             H = HM**(1-alpha)*HF**alpha
-        elif np.isclose(sigma,0.0):
-            H = min(HM,HF)
+        elif sigma==0:
+            H = np.min(HM,HF)
         else:
             H = ((1-alpha)*HM**((sigma-1)/sigma)+alpha*HF**((sigma-1)/sigma))**(sigma/(sigma-1))
 
@@ -76,7 +76,7 @@ class HouseholdSpecializationModelClass:
         epsilon_ = 1+1/par.epsilon
         TM = LM+HM
         TF = LF+HF
-        disutility = par.nu*(TM**epsilon_/epsilon_+TF**epsilon_/epsilon_+ par.dummy*(LF)**par.mu) 
+        disutility = par.nu*(TM**epsilon_/epsilon_+TF**epsilon_/epsilon_+ (LF)**par.mu-1) 
         
         return utility - disutility
 
@@ -170,12 +170,8 @@ class HouseholdSpecializationModelClass:
         sol = self.sol
     
         #Creating vectors for results
-        par.lw_vec = np.zeros(len(par.wF_vec))
         par.lH_vec = np.zeros(len(par.wF_vec))
 
-        sol.HM_vec = np.zeros(len(par.wF_vec))
-        sol.HF_vec = np.zeros(len(par.wF_vec))
-        
         #Loop through different values of wF
         for i_w, wF in enumerate(par.wF_vec):
             
@@ -193,7 +189,6 @@ class HouseholdSpecializationModelClass:
                 opt = self.solve_continuous()
             
             #Saving results
-            par.lw_vec[i_w] = np.log(par.wF/par.wM)
             par.lH_vec[i_w] = np.log(opt.HF/opt.HM)
 
             sol.HM_vec[i_w] = opt.HM
@@ -225,11 +220,12 @@ class HouseholdSpecializationModelClass:
         sol = self.sol
 
         #Setting up objective function
-        def obj(x):
+        def obj(x,self):
+
+            par = self.par
+            sol = self.sol
             
             #Initial parameters
-            b0 = 0.4
-            b1 = -0.1
             par.alpha = x[0]
             par.sigma = x[1]
             
@@ -239,13 +235,13 @@ class HouseholdSpecializationModelClass:
             #Run regression for beta_0 and beta_1
             self.run_regression()
 
-            return (b0-sol.beta0)**2 + (b1-sol.beta1)**2
+            return (par.beta0_target-sol.beta0)**2 + (par.beta1_target-sol.beta1)**2
         
         #Setting bounds for alpha and sigma
         bnds = ((0,1),(0,5))
         
         #Minimize objective function for alpha and sigma
-        res = optimize.minimize(obj,x0=(0.5,0.5),method='Nelder-Mead',bounds = bnds)
+        res = optimize.minimize(obj,x0=(0.5,0.5),method='Nelder-Mead',bounds = bnds,args=(self,))
         
         #Saving results of alpha and sigma
         sol.alpha_hat = res.x[0]
@@ -258,7 +254,7 @@ class HouseholdSpecializationModelClass:
 
             print(f'beta0_hat: {sol.beta0:.4f}')
             print(f'beta1_hat: {sol.beta1:.4f}')
-            print(f'Termination value: {obj(res.x):.4f}')
+            print(f'Termination value: {obj(res.x,self):.4f}')
 
     def estimate_(self,sigma=None,mu=None,do_print=False):
         """ estimate mu and sigma """
@@ -268,10 +264,11 @@ class HouseholdSpecializationModelClass:
         sol = self.sol
 
         #Create objective function
-        def obj(x):
+        def obj(x,self):
 
-            b0 = 0.4
-            b1 = -0.1
+            par = self.par
+            sol = self.sol
+
             par.sigma = x[0]
             par.mu = x[1]
 
@@ -279,18 +276,13 @@ class HouseholdSpecializationModelClass:
 
             self.run_regression()
 
-            return (b0-sol.beta0)**2 + (b1-sol.beta1)**2
+            return (par.beta0_target-sol.beta0)**2 + (par.beta1_target-sol.beta1)**2
         
         #Bounds for sigma and mu
         bnds = ((0,5),(0,24))
         
-        #Try different initial values, to check for changes:
-        sigma_grid = np.linspace(0,5,5)
-        mu_grid = np.linspace(0,24,5)
-        res_grid = np.zeros((len(sigma_grid),len(mu_grid)))
-        
         #Optimize fit with mu and sigma
-        res = optimize.minimize(obj,x0=(1.25,12),method='Nelder-Mead',bounds = bnds)
+        res = optimize.minimize(obj,x0=(1.25,12),method='Nelder-Mead',bounds = bnds,args=(self,))
                 
         #Saving results
         sol.mu_hat = res.x[0]
@@ -303,5 +295,5 @@ class HouseholdSpecializationModelClass:
 
             print(f'beta0_hat: {sol.beta0:.4f}')
             print(f'beta1_hat: {sol.beta1:.4f}')
-            print(f'Termination value: {obj(res.x):.4f}')
+            print(f'Termination value: {obj(res.x,self):.4f}')
             
