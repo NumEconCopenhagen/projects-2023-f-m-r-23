@@ -1,16 +1,26 @@
-def keep_regs(df, regs):
-    """ Example function. Keep only the subset regs of regions in data.
+from dstapi import DstApi
 
-    Args:
-        df (pd.DataFrame): pandas dataframe 
+def import_REG():
 
-    Returns:
-        df (pd.DataFrame): pandas dataframe
+    # connecting to dst
+    ind = DstApi('REGK11')
 
-    """ 
-    
-    for r in regs:
-        I = df.reg.str.contains(r)
-        df = df.loc[I == False] # keep everything else
-    
-    return df
+    # choosing which variables to import
+    params = {'table':'REGK11',
+         'format':"BULK",
+         'variables':[{'code':'OMRÅDE','values':['*']},
+                     {'code':'PRISENHED','values':['INDL']},
+                     {'code':'DRANST','values':['1']},
+                     {'code':'FUNK1','values':['4']},
+                     {'code':'ART','values':['TOT']},
+                     {'code':'TID','values':['>2007']}]}
+    # importing data
+    data = ind.get_data(params)
+
+    # dropping irrelevant and/or constant columns
+    data.drop(columns=['PRISENHED', 'DRANST', 'FUNK1', 'ART'],inplace=True)
+
+    # renaming columns
+    data.rename(columns={'INDHOLD':'SUNDHEDSUDGIFTER'},inplace=True)
+
+    return data
