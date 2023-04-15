@@ -84,12 +84,12 @@ class HouseholdSpecializationModelClass:
        
         """ solve model discretely """
         
-        #Setting up initial parameters
+        # setting up initial parameters
         par = self.par
         sol = self.sol
         opt = SimpleNamespace()
         
-        #Accounting for None values of Sigma and Alpha
+        # accounting for None values of Sigma and Alpha
         sigma = par.sigma if sigma is None else sigma
         alpha = par.alpha if alpha is None else alpha
         
@@ -127,26 +127,26 @@ class HouseholdSpecializationModelClass:
     def solve_continuous(self,do_print=False):
         """ solve model continuously """
         
-        #Setting up initial parameters
+        # setting up initial parameters
         par = self.par
         sol = self.par
         opt = SimpleNamespace()
         
-        #Setting bounds, 24 hours for each 
+        # setting bounds, 24 hours for each 
         bnds = ((0,24),(0,24),(0,24),(0,24))
         
-        #Setting up constraints, 24 hour max for H and L
+        # setting up constraints, 24 hour max for H and L
         cnst = {'type': 'ineq', 'fun': lambda x: 24 - x[0] - x[1],
                 'type': 'ineq', 'fun': lambda x: 24 - x[2] - x[3]}
 
-        #Creating objective function for optimize
+        # creating objective function for optimize
         def obj(x):
             return -self.calc_utility(x[0],x[1],x[2],x[3])
 
         #Optimizing
         res = optimize.minimize(obj,x0 = (4.5,4.5,4.5,4.5),method='SLSQP',bounds = bnds, constraints = cnst,tol=1e-10)
         
-        #Saving results
+        # saving results
         opt.LM = res.x[0]
         opt.HM = res.x[1]
         opt.LF = res.x[2]
@@ -165,30 +165,30 @@ class HouseholdSpecializationModelClass:
     def solve_wF_vec(self,discrete=False):
         """ solve model for vector of female wages """
         
-        #Setting up parameters
+        # setting up parameters
         par = self.par
         sol = self.sol
     
-        #Creating vectors for results
+        # creating vectors for results
         par.lH_vec = np.zeros(len(par.wF_vec))
 
         #Loop through different values of wF
         for i_w, wF in enumerate(par.wF_vec):
             
-            #Changing wF
+            # changing wF
             par.wF = wF
 
             if discrete: # solving with discrete method
             
-                #Solve for discrete choice set
+                # solve for discrete choice set
                 opt = self.solve_discrete()
 
             else: # solving with continuous method
                 
-                #Solve for continuous choice set
+                # solve for continuous choice set
                 opt = self.solve_continuous()
             
-            #Saving results
+            # saving results
             par.lH_vec[i_w] = np.log(opt.HF/opt.HM)
 
             sol.HM_vec[i_w] = opt.HM
@@ -202,11 +202,11 @@ class HouseholdSpecializationModelClass:
     def run_regression(self):
         """ run regression """
         
-        #Setting up parameters
+        # setting up parameters
         par = self.par
         sol = self.sol
         
-        #Running regression
+        # running regression
         x = np.log(par.wF_vec)
         y = np.log(sol.HF_vec/sol.HM_vec)
         A = np.vstack([np.ones(x.size),x]).T
@@ -215,11 +215,11 @@ class HouseholdSpecializationModelClass:
     def estimate(self,alpha=None,sigma=None,do_print=False):
         """ estimate alpha and sigma """
         
-        #Setting up parameters
+        # setting up parameters
         par = self.par
         sol = self.sol
 
-        #Setting up objective function
+        # setting up objective function
         def obj(x,self):
 
             par = self.par
@@ -229,7 +229,7 @@ class HouseholdSpecializationModelClass:
             par.alpha = x[0]
             par.sigma = x[1]
             
-            #Solve optimal choice set, account for different wF
+            # solve optimal choice set, account for different wF
             self.solve_wF_vec(discrete=False)
             
             #Run regression for beta_0 and beta_1
@@ -237,13 +237,13 @@ class HouseholdSpecializationModelClass:
 
             return (par.beta0_target-sol.beta0)**2 + (par.beta1_target-sol.beta1)**2
         
-        #Setting bounds for alpha and sigma
+        # setting bounds for alpha and sigma
         bnds = ((0,1),(0,5))
         
         #Minimize objective function for alpha and sigma
         res = optimize.minimize(obj,x0=(0.5,0.5),method='Nelder-Mead',bounds = bnds,args=(self,))
         
-        #Saving results of alpha and sigma
+        # saving results of alpha and sigma
         sol.alpha_hat = res.x[0]
         sol.sigma_hat = res.x[1]
 
@@ -259,11 +259,11 @@ class HouseholdSpecializationModelClass:
     def estimate_(self,sigma=None,mu=None,do_print=False):
         """ estimate mu and sigma """
         
-        #Setting up parameters
+        # setting up parameters
         par = self.par
         sol = self.sol
 
-        #Create objective function
+        # create objective function
         def obj(x,self):
 
             par = self.par
@@ -278,13 +278,13 @@ class HouseholdSpecializationModelClass:
 
             return (par.beta0_target-sol.beta0)**2 + (par.beta1_target-sol.beta1)**2
         
-        #Bounds for sigma and mu
+        # bounds for sigma and mu
         bnds = ((0,5),(0,24))
         
-        #Optimize fit with mu and sigma
+        # optimize fit with mu and sigma
         res = optimize.minimize(obj,x0=(1.25,12),method='Nelder-Mead',bounds = bnds,args=(self,))
                 
-        #Saving results
+        # saving results
         sol.mu_hat = res.x[0]
         sol.sigma_hat = res.x[1]
 
