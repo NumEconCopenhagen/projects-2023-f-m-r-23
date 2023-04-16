@@ -1,6 +1,6 @@
 # Data analysis project
 
-Our project is titled **Demographics and Health Care Expenditures in Danish Municipalities** and is about the age composition of Danish municipalities and their healt care expenditures.
+Our project is titled **Demographic Heterogeneity and Health Care Expenditures in Danish Municipalities** and is about the age composition of Danish municipalities and their healt care expenditures.
 
 The **results** of the project can be seen from running [dataproject.ipynb](dataproject.ipynb).
 
