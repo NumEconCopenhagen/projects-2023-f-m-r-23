@@ -1,9 +1,9 @@
 # Python4Lyfe
 
 **Group members:**
-- Frederik Findsen
-- Mads Thorndahl
-- Rasmus Hamann Jensen
+- Frederik Findsen - LPH135
+- Mads Thorndahl - VRG988
+- Rasmus Hamann Jensen - DJW821
 
 This repository contains  
 1. Inaugural project. 
