@@ -27,6 +27,7 @@ class OLGModelClass():
         # a. household
         par.sigma = 2.0 # CRRA coefficient
         par.beta = 1/1.40 # discount factor
+        par.nu = 2.0
 
         # b. firms
         par.production_function = 'ces'
@@ -41,6 +42,8 @@ class OLGModelClass():
         # d. misc
         par.K_lag_ini = 1.0 # initial capital stock
         par.B_lag_ini = 0.0 # initial government debt
+        par.chi_lag_ini = 0.0
+        par.rt_lag_ini = 0.01
         par.simT = 50 # length of simulation
 
     def allocate(self):
@@ -50,9 +53,9 @@ class OLGModelClass():
         sim = self.sim
 
         # a. list of variables
-        household = ['C1','C2']
+        household = ['C1','C2','chi','Gamma','chi_lag']
         firm = ['K','Y','K_lag']
-        prices = ['w','rk','rb','r','rt']
+        prices = ['w','rk','rb','r','rt','rt_lag']
         government = ['G','T','B','balanced_budget','B_lag']
 
         # b. allocate
@@ -71,6 +74,8 @@ class OLGModelClass():
         # a. initial values
         sim.K_lag[0] = par.K_lag_ini
         sim.B_lag[0] = par.B_lag_ini
+        sim.chi_lag[0] = par.chi_lag_ini
+        sim.rt_lag[0] = par.rt_lag_ini
 
         # b. iterate
         for t in range(par.simT):
@@ -147,11 +152,22 @@ def calc_euler_error(s,par,sim,t):
     simulate_after_s(par,sim,t,s)
     simulate_before_s(par,sim,t+1) # next period
 
-    # c. Euler equation
+    # b. Euler equation
     LHS = sim.C1[t]**(-par.sigma)
-    RHS = (1+(1-sim.tau_r)*sim.rt[t+1])*par.beta * (sim.C2[t+1]**(-par.sigma)-((1)/(2*np.sqrt((1+(1-sim.tau_r)*sim.rt[t+1])sim.s-sim.C2[t+1]))))
+    RHS = (1+sim.rt[t+1])*par.beta * sim.C2[t+1]**(-par.sigma)
 
     return LHS-RHS
+
+def calc_euler_error2(c2,par,sim,t):
+
+    if t > 0:
+        sim.chi_lag[t] = sim.chi[t-1]
+    
+    sim.C2[t] = c2
+
+    sim.chi[t] = sim.C2[t]**(par.sigma/par.nu)
+    return (sim.C2[t] + sim.chi[t])-((1+sim.rt[t])*(sim.K_lag[t]+sim.B_lag[t]))
+
 
 def simulate_before_s(par,sim,t):
     """ simulate forward """
@@ -189,7 +205,8 @@ def simulate_before_s(par,sim,t):
     sim.rt[t] = (1-par.tau_r)*sim.r[t] # after-tax return
 
     # c. consumption
-    sim.C2[t] = (1+sim.rt[t])*(sim.K_lag[t]+sim.B_lag[t])
+    c2_max = ((1+sim.rt[t])*(sim.K_lag[t]+sim.B_lag[t]))
+    optimize.root_scalar(calc_euler_error2,args=(par,sim,t),bracket=(0,c2_max),method='brentq')
 
     # d. government
     sim.T[t] = par.tau_r*sim.r[t]*(sim.K_lag[t]+sim.B_lag[t]) + par.tau_w*sim.w[t]
@@ -203,16 +220,21 @@ def simulate_before_s(par,sim,t):
 
 def simulate_after_s(par,sim,t,s):
     """ simulate forward """
+
+    if t > 0:
+        sim.chi_lag[t] = sim.chi[t-1]
+        sim.rt_lag[t] = sim.rt[t-1]
     
     #Define gamma
-    sim.Gamma[t] = 0
+    sim.Gamma[t] = (1+sim.rt_lag[t])*sim.chi_lag[t]
+
+    # a. total income
+    tY = (1-par.tau_w)*sim.w[t] + sim.Gamma[t]
 
     # a. consumption of young
-    sim.C1[t] = (1-par.tau_w)*sim.w[t]*(1.0-s)
+    sim.C1[t] = tY*(1.0-s)
     
     # b. end-of-period stocks
     I = sim.Y[t] - sim.C1[t] - sim.C2[t] - sim.G[t]
-    sim.K[t] = (1-par.delta)*sim.K_lag[t] + I
+    sim.K[t] = (1-par.delta)*sim.K_lag[t] + I + sim.rt[t]*sim.chi[t]
     
-    # c. define savings
-    sim.S[t] = s*((1-sim.tau_w)*sim.w[t]+sim.gamma[t])
