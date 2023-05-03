@@ -38,12 +38,15 @@ class OLGModelClass():
         # c. government
         par.tau_w = 0.10 # labor income tax
         par.tau_r = 0.20 # capital income tax
+        par.tau_gamma = 0.2 # bequest tax
 
         # d. misc
         par.K_lag_ini = 1.0 # initial capital stock
         par.B_lag_ini = 0.0 # initial government debt
         par.chi_lag_ini = 0.0
         par.rt_lag_ini = 0.01
+        par.rt_heritage_lag_ini = 0.01
+        
         par.simT = 50 # length of simulation
 
     def allocate(self):
@@ -55,7 +58,7 @@ class OLGModelClass():
         # a. list of variables
         household = ['C1','C2','chi','Gamma','chi_lag']
         firm = ['K','Y','K_lag']
-        prices = ['w','rk','rb','r','rt','rt_lag']
+        prices = ['w','rk','rb','r','rt','rt_lag','rt_heritage','rt_heritage_lag']
         government = ['G','T','B','balanced_budget','B_lag']
 
         # b. allocate
@@ -76,6 +79,7 @@ class OLGModelClass():
         sim.B_lag[0] = par.B_lag_ini
         sim.chi_lag[0] = par.chi_lag_ini
         sim.rt_lag[0] = par.rt_lag_ini
+        sim.rt_heritage_lag[0] = par.rt_heritage_lag_ini
 
         # b. iterate
         for t in range(par.simT):
@@ -166,6 +170,7 @@ def calc_euler_error2(c2,par,sim,t):
     sim.C2[t] = c2
 
     sim.chi[t] = sim.C2[t]**(par.sigma/par.nu)
+    
     return (sim.C2[t] + sim.chi[t])-((1+sim.rt[t])*(sim.K_lag[t]+sim.B_lag[t]))
 
 
@@ -203,16 +208,16 @@ def simulate_before_s(par,sim,t):
     sim.r[t] = sim.rk[t]-par.delta # after-depreciation return
     sim.rb[t] = sim.r[t] # same return on bonds
     sim.rt[t] = (1-par.tau_r)*sim.r[t] # after-tax return
+    sim.rt_heritage[t] = (1-par.tau_gamma)*sim.r[t] # after-tax return for bequests
 
     # c. consumption
     c2_max = ((1+sim.rt[t])*(sim.K_lag[t]+sim.B_lag[t]))
     optimize.root_scalar(calc_euler_error2,args=(par,sim,t),bracket=(0,c2_max),method='brentq')
 
     # d. government
-    sim.T[t] = par.tau_r*sim.r[t]*(sim.K_lag[t]+sim.B_lag[t]) + par.tau_w*sim.w[t]
+    sim.T[t] = par.tau_r*sim.r[t]*(sim.K_lag[t]+sim.B_lag[t]-sim.chi[t]) + par.tau_w*sim.w[t] + par.tau_gamma*sim.r[t]*sim.chi_lag[t]
     
     
-
     if sim.balanced_budget[t]:
         sim.G[t] = sim.T[t] - sim.r[t]*sim.B_lag[t]
 
@@ -223,10 +228,10 @@ def simulate_after_s(par,sim,t,s):
 
     if t > 0:
         sim.chi_lag[t] = sim.chi[t-1]
-        sim.rt_lag[t] = sim.rt[t-1]
+        sim.rt_heritage_lag[t] = sim.rt_heritage[t-1]
     
     #Define gamma
-    sim.Gamma[t] = (1+sim.rt_lag[t])*sim.chi_lag[t]
+    sim.Gamma[t] = (1+sim.rt_heritage_lag[t])*sim.chi_lag[t]
 
     # a. total income
     tY = (1-par.tau_w)*sim.w[t] + sim.Gamma[t]
@@ -235,6 +240,6 @@ def simulate_after_s(par,sim,t,s):
     sim.C1[t] = tY*(1.0-s)
     
     # b. end-of-period stocks
-    I = sim.Y[t] - sim.C1[t] - sim.C2[t] - sim.G[t]
-    sim.K[t] = (1-par.delta)*sim.K_lag[t] + I + sim.rt[t]*sim.chi[t]
+    I = sim.Y[t] - sim.C1[t] - sim.C2[t] - sim.G[t] + sim.chi[t]
+    sim.K[t] = (1-par.delta)*sim.K_lag[t] + I 
     
