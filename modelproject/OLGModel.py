@@ -169,7 +169,7 @@ def calc_euler_error2(c2,par,sim,t):
     
     sim.C2[t] = c2
 
-    sim.chi[t] = sim.C2[t]**(par.sigma/par.nu)*(1-par.tau_gamma)
+    sim.chi[t] = sim.C2[t]**(par.sigma/par.nu)*(1-par.tau_gamma)**((1-par.nu)/par.nu)
     
     return (sim.C2[t] + sim.chi[t])-((1+sim.rt[t])*(sim.K_lag[t]+sim.B_lag[t]))
 
@@ -209,14 +209,14 @@ def simulate_before_s(par,sim,t):
     sim.rb[t] = sim.r[t] # same return on bonds
     
     sim.rt[t] = (1-par.tau_r)*sim.r[t] # after-tax return 
-    sim.rt_heritage[t] = (1-par.tau_gamma)*sim.r[t] # after-tax return for bequests
+    sim.rt_heritage[t] = (1-par.tau_r)*sim.r[t] # after-tax return for bequests
 
     # c. consumption
     c2_max = ((1+sim.rt[t])*(sim.K_lag[t]+sim.B_lag[t]))
     optimize.root_scalar(calc_euler_error2,args=(par,sim,t),bracket=(0,c2_max),method='brentq')
 
     # d. government
-    sim.T[t] = par.tau_r*sim.r[t]*(sim.K_lag[t]+sim.B_lag[t]-sim.chi_lag[t]) + par.tau_w*sim.w[t] + sim.r[t]*par.tau_gamma*sim.chi_lag[t]
+    sim.T[t] = par.tau_r*sim.r[t]*(sim.K_lag[t]+sim.B_lag[t]-sim.chi_lag[t]) + par.tau_w*sim.w[t] + par.tau_gamma*sim.chi[t]
     
     
     if sim.balanced_budget[t]:
@@ -228,7 +228,7 @@ def simulate_after_s(par,sim,t,s):
     """ simulate forward """
 
     if t > 0:
-        sim.chi_lag[t] = sim.chi[t-1]
+        sim.chi_lag[t] = (1-par.tau_gamma)*sim.chi[t-1]
         sim.rt_heritage_lag[t] = sim.rt_heritage[t-1]
     
     #Define gamma
