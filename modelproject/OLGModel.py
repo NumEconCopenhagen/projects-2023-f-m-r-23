@@ -46,6 +46,8 @@ class OLGModelClass():
         par.chi_lag_ini = 0.0
         par.rt_lag_ini = 0.01
         par.rt_heritage_lag_ini = 0.01
+
+        par.model = 'bequest' # choose 'standard' or 'bequest
         
         par.simT = 50 # length of simulation
 
@@ -60,9 +62,10 @@ class OLGModelClass():
         firm = ['K','Y','K_lag']
         prices = ['w','rk','rb','r','rt','rt_lag','rt_heritage','rt_heritage_lag']
         government = ['G','T','B','balanced_budget','B_lag']
+        utility = ['u_young','u_old','u_life']
 
         # b. allocate
-        allvarnames = household + firm + prices + government
+        allvarnames = household + firm + prices + government + utility
         for varname in allvarnames:
             sim.__dict__[varname] = np.nan*np.ones(par.simT)
 
@@ -99,6 +102,8 @@ class OLGModelClass():
 
             # iii. simulate after s
             simulate_after_s(par,sim,t,s)
+
+        util(par,sim)
 
         if do_print: print(f'simulation done in {time.time()-t0:.2f} secs')
 
@@ -212,11 +217,24 @@ def simulate_before_s(par,sim,t):
     sim.rt_heritage[t] = (1-par.tau_r)*sim.r[t] # after-tax return for bequests
 
     # c. consumption
-    c2_max = ((1+sim.rt[t])*(sim.K_lag[t]+sim.B_lag[t]))
-    optimize.root_scalar(calc_euler_error2,args=(par,sim,t),bracket=(0,c2_max),method='brentq')
+    c2_max = (1+sim.rt[t])*(sim.K_lag[t]+sim.B_lag[t])
+    
+    if par.model == 'bequest':
+
+        optimize.root_scalar(calc_euler_error2,args=(par,sim,t),bracket=(0,c2_max),method='brentq')
+
+    elif par.model == 'standard':
+
+        sim.C2[t] = c2_max
+        sim.chi[t]  = 0.0
+
+    else:
+
+        raise NotImplementedError('unknown type of specified model. Specify standard or bequest')
+
 
     # d. government
-    sim.T[t] = par.tau_r*sim.r[t]*(sim.K_lag[t]+sim.B_lag[t]-sim.chi_lag[t]) + par.tau_w*sim.w[t] + par.tau_gamma*sim.chi[t]
+    sim.T[t] = par.tau_r*sim.r[t]*(sim.K_lag[t]+sim.B_lag[t]) + par.tau_w*sim.w[t] + par.tau_r*sim.r[t]*(1-par.tau_gamma)*sim.chi[t] + par.tau_gamma*sim.chi[t] # -sim.chi_lag[t]
     
     
     if sim.balanced_budget[t]:
@@ -228,7 +246,7 @@ def simulate_after_s(par,sim,t,s):
     """ simulate forward """
 
     if t > 0:
-        sim.chi_lag[t] = (1-par.tau_gamma)*sim.chi[t-1]
+        sim.chi_lag[t] = (1-par.delta)*(1-par.tau_gamma)*sim.chi[t-1]
         sim.rt_heritage_lag[t] = sim.rt_heritage[t-1]
     
     #Define gamma
@@ -241,6 +259,23 @@ def simulate_after_s(par,sim,t,s):
     sim.C1[t] = tY*(1.0-s)
     
     # b. end-of-period stocks
-    I = sim.Y[t] - sim.C1[t] - sim.C2[t] - sim.G[t] + sim.chi[t]
+    I = sim.Y[t] - sim.C1[t] - sim.C2[t] - sim.G[t] + (1-par.tau_gamma)*sim.chi[t]
     sim.K[t] = (1-par.delta)*sim.K_lag[t] + I 
-    
+
+
+def util(par,sim):
+
+    sim.u_young[:] = sim.C1**(1-par.sigma)/(1-par.sigma)
+    if par.model == 'bequest':
+
+        sim.u_old[:] = sim.C2**(1-par.sigma)/(1-par.sigma) + ((1-par.tau_gamma)*sim.chi)**(1-par.nu)/(1-par.nu)
+
+    elif par.model == 'standard':
+
+        sim.u_old[:] = sim.C2**(1-par.sigma)/(1-par.sigma)
+
+    else:
+
+        raise NotImplementedError('unknown type of specified model. Specify standard or bequest')
+
+    sim.u_life[:-1] = sim.u_young[:-1] + par.beta*sim.u_old[1:]
