@@ -195,9 +195,6 @@ class HouseholdSpecializationModelClass:
             sol.HF_vec[i_w] = opt.HF
             sol.LF_vec[i_w] = opt.LF
             sol.LM_vec[i_w] = opt.LM
-            
-        
-
 
     def run_regression(self):
         """ run regression """
@@ -296,4 +293,3 @@ class HouseholdSpecializationModelClass:
             print(f'beta0_hat: {sol.beta0:.4f}')
             print(f'beta1_hat: {sol.beta1:.4f}')
             print(f'Termination value: {obj(res.x,self):.4f}')
-            
