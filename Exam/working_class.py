@@ -35,6 +35,7 @@ class working_class():
         par.simT = 50 # length of simulation
     
     def utility(self,L):
+        """ First utility function  """
 
         par = self.par
         
@@ -51,6 +52,7 @@ class working_class():
         return utility
         
     def solve(self):
+        """ Solve the non-general case  """
         
         par = self.par
         
@@ -69,6 +71,7 @@ class working_class():
         return opt
     
     def analytical_sol(self,w):
+        """ Analytical solution  """
     
         par = self.par
         
@@ -79,6 +82,7 @@ class working_class():
         return L
 
     def utility_general(self,L):
+        """ General utility function  """
     
         par = self.par
         
@@ -88,7 +92,7 @@ class working_class():
         first = par.alpha*C**((par.sigma-1)/par.sigma)
         second = (1-par.alpha)*G**((par.sigma-1)/(par.sigma))
         
-        comb = ((first+second)**(par.sigma/(1-par.sigma))**(1-par.rho)-1)/(1-par.rho)
+        comb = (((first+second)**(par.sigma/(par.sigma-1)))**(1-par.rho)-1)/(1-par.rho)
         last = par.nu*(L**(1+par.epsilon)/(1+par.epsilon))
                                          
         utility = comb - last
@@ -96,6 +100,7 @@ class working_class():
         return utility
     
     def solve_general(self):
+        """ Solve the utility function for the general case  """
         
         par = self.par
         sol = self.sol
@@ -107,7 +112,7 @@ class working_class():
             return -self.utility_general(x)
         
         #Optimize
-        res = minimize_scalar(obj, bounds=(0, 24), method='bounded')
+        res = minimize_scalar(obj, bounds=(0, 24), method='bounded',tol=1e-10)
         
         #Saving results
         opt.L = res.x
@@ -117,6 +122,7 @@ class working_class():
     
     
     def solve_q5(self):
+        """ Solve Question 5  """
         
         def obj(G):
             par.G = G
