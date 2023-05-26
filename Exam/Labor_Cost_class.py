@@ -7,10 +7,12 @@ class Labor_Cost_class:
 
     def __init__(self):
 
+        # creating namespaces
         par = self.par = SimpleNamespace()
         sol = self.sol = SimpleNamespace()
         sim = self.sim = SimpleNamespace()
 
+        # setting parameters
         par.eta = 0.5
         par.w = 1.0
         par.kappa = 1.0
@@ -21,13 +23,15 @@ class Labor_Cost_class:
         par.R = (1.01)**(1/12)
         par.iota = 0.01
         par.delta = 0.075
-        par.seed = False
-        par.ell_rule = 'standard'
+        par.seed = False            # fix seed or not
+        par.ell_rule = 'standard'   # to implement new labor adjustment policy
 
+        # initializing solution values
         sol.ell = np.nan
         sol.ell_ana = np.nan
         sol.delta = np.nan
 
+        # initializing simulation values
         sim.draws = np.zeros((par.K,par.T))
         sim.kappa_path = np.zeros((par.K,par.T))
         sim.ell = np.zeros((par.K,par.T))
@@ -36,6 +40,9 @@ class Labor_Cost_class:
         sim.H = np.nan
     
     def analytical_solution(self):
+        '''
+        Calculates analytical solution
+        '''
 
         par = self.par
         sol = self.sol
@@ -43,6 +50,9 @@ class Labor_Cost_class:
         sol.ell_ana =  ((1-par.eta)*par.kappa/par.w)**(1/par.eta)
 
     def analytical_solution_path(self,k):
+        '''
+        Calculates analytical solution along a path of kappa
+        '''
 
         par = self.par
         sim = self.sim
@@ -50,12 +60,18 @@ class Labor_Cost_class:
         sim.ell_star[k,:] = ((1-par.eta)*sim.kappa_path[k]/par.w)**(1/par.eta)
     
     def calc_profit(self,ell):
+        '''
+        Calculates profit for non-stochastic kappa
+        '''
 
         par = self.par
 
         return par.kappa*ell**(1-par.eta) - par.w*ell
     
     def solve_numerically(self):
+        '''
+        Solve firm problem numerically
+        '''
 
         par = self.par
         sol = self.sol
@@ -69,6 +85,9 @@ class Labor_Cost_class:
         sol.ell = res.x.item()
 
     def compare_num_ana(self):
+        '''
+        Compares the analytical and numerical solution
+        '''
 
         par = self.par
         sol = self.sol
@@ -80,6 +99,9 @@ class Labor_Cost_class:
         print(f'Analytical solution with {par.kappa=}: {sol.ell_ana:.6f}')
 
     def draws(self):
+        '''
+        Draws random shocks to kappa
+        '''
 
         par = self.par
         sim = self.sim
@@ -89,6 +111,9 @@ class Labor_Cost_class:
         sim.draws = np.random.normal(-0.5*par.sigma_e**2,par.sigma_e,size=(par.K,par.T))
 
     def create_kappa_path(self):
+        '''
+        Generates paths of kappa using the draws
+        '''
 
         par = self.par
         sol = self.sol
@@ -104,6 +129,9 @@ class Labor_Cost_class:
                     sim.kappa_path[k,t] = np.exp(par.rho*np.log(sim.kappa_path[k,t-1]) +  + sim.draws[k,t])
 
     def h(self,k):
+        '''
+        Calculates ex-post profit for a given kappa path
+        '''
 
         par = self.par
         sol = self.sol
@@ -120,6 +148,10 @@ class Labor_Cost_class:
         sim.discounted_profit[k] = np.sum(profits*par.R**(-np.arange(par.T)))
 
     def ell_rule(self,k):
+        '''
+        Calculates ell for a given kappa path
+        ###The loops are written inefficiently, but they do the job :-)###
+        '''
 
         par = self.par
         sol = self.sol
@@ -154,6 +186,9 @@ class Labor_Cost_class:
                     sim.ell[k,t] = ell_lag
 
     def H(self):
+        '''
+        Calculate the ex-ante profit
+        '''
 
         par = self.par
         sol = self.sol
@@ -161,7 +196,6 @@ class Labor_Cost_class:
 
         self.create_kappa_path()
         k = 0
-        out = 0
 
         for k in range(par.K):
             self.h(k)
