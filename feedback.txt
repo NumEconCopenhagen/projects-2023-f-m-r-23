@@ -1,0 +1,11 @@
+InauguralProject:
+    hold-11	
+    team-copenhagen
+
+DataProject:
+    2x-chris-og-ras	
+    team-norway
+
+ModelProject:
+    3500	
+    kernen-af-kulten
