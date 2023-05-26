@@ -39,10 +39,11 @@ class working_class():
 
         par = self.par
         
+        #Utility without the new G
         if par.with_G == False:
             C = par.kappa+(1-par.tau)*par.w*L
             utility = np.log(C**par.alpha*par.G**(1-par.alpha))-par.nu*(L**2/2)
-        
+        #Utility with the new G
         elif par.with_G == True:
             C = par.kappa+(1-par.tau)*par.w*L
             G = par.tau*par.w*L*((1-par.tau)*par.w)
@@ -77,6 +78,7 @@ class working_class():
         
         w_tau = (1-par.tau)*w
         
+        #Analytical solution
         L = (-par.kappa+np.sqrt(par.kappa**2+4*(par.alpha/par.nu)*w_tau**2))/(2*w_tau)
         
         return L
@@ -86,6 +88,7 @@ class working_class():
     
         par = self.par
         
+        #Setting up utility function
         C = par.kappa+(1-par.tau)*par.w*L
         G = par.G
         
@@ -119,18 +122,4 @@ class working_class():
         sol.L = res.x
         
         return opt
-    
-    
-    def solve_q5(self):
-        """ Solve Question 5  """
-        
-        def obj(G):
-            par.G = G
-            model.solve_general()
-        
-            return par.G-par.tau*par.w*sol.L
-    
-        res = brentq(obj,-100,100)
-    
-        return res
     
