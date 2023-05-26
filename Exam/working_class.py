@@ -64,7 +64,7 @@ class working_class():
             return -self.utility(x[0])
         
         #Optimize
-        res = minimize(obj,x0 = (12),method='BFGS',tol=1e-10)
+        res = minimize(obj,x0 = (12),method='BFGS')
         
         #Saving results
         opt.L = res.x[0]
@@ -115,7 +115,7 @@ class working_class():
             return -self.utility_general(x)
         
         #Optimize
-        res = minimize_scalar(obj, bounds=(0, 24), method='bounded',tol=1e-10)
+        res = minimize_scalar(obj, bounds=(0, 24), method='bounded')
         
         #Saving results
         opt.L = res.x
